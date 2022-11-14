@@ -406,7 +406,109 @@ int process_command(struct command_t *command) {
           newArgs[command->arg_count-1] = command->redirects[0];
           newArgs[command->arg_count] = NULL;
           execv(execPath,newArgs);
-      } else {
+      } else if (command->next != NULL){
+          /// piped process
+
+          // count the total number of processes
+          int commandCount = 1;
+          struct command_t *commandPtr = command;
+          while (commandPtr->next != NULL){
+              commandCount++;
+              commandPtr = commandPtr->next;
+          }
+          int fds[commandCount-1][2];
+
+          commandPtr = command;
+          // executing children
+          for (int i = 0; i < commandCount-1; i++){
+              pipe(fds[i]);
+              if (fork()==0){
+                  if (i > 0){
+                      dup2(fds[i-1][0],STDIN_FILENO);
+                      close(fds[i-1][0]);
+                  }
+                  dup2(fds[i][1], STDOUT_FILENO);
+                  // find the path of the command
+                  dupPath = strdup(path);
+                  fileName = commandPtr->name;
+                  token = strtok(dupPath,delim);
+                  char *exectPath;
+                  while (token != NULL){
+                      char filePath[strlen(token)+strlen(fileName)+2];
+                      sprintf(filePath,"%s/%s",token,fileName);
+
+                      if (access(filePath,F_OK)==0){
+                          exectPath = filePath;
+
+                          if (i > 0){
+                              commandPtr->args=(char **)realloc(
+                                      commandPtr->args, sizeof(char *)*(commandPtr->arg_count+=2));
+                              // shift everything forward by 1
+                              for (int j=commandPtr->arg_count-2;j>0;--j)
+                                  commandPtr->args[j]=commandPtr->args[j-1];
+
+                              // set args[0] as a copy of name
+                              commandPtr->args[0]=strdup(commandPtr->name);
+                              // set args[arg_count-1] (last) to NULL
+                              commandPtr->args[commandPtr->arg_count-1]=NULL;
+
+                          }
+
+                          execv(exectPath,commandPtr->args);
+                          break;
+                      }
+
+                      token = strtok(NULL,delim);
+                  }
+                  close(fds[i][1]);
+
+                  //perror("execv failed");
+
+                  exit(1);
+              }
+              if (i > 0){
+                  close(fds[i-1][0]);
+              }
+              close(fds[i][1]);
+
+              commandPtr = commandPtr->next;
+
+          }
+          dup2(fds[commandCount-2][0],STDIN_FILENO);
+          close(fds[commandCount-2][0]);
+          close(fds[commandCount-2][1]);
+          dupPath = strdup(path);
+          fileName = commandPtr->name;
+          token = strtok(dupPath,delim);
+          char *exectPath;
+          while (token != NULL){
+              char filePath[strlen(token)+strlen(fileName)+2];
+              sprintf(filePath,"%s/%s",token,fileName);
+
+              if (access(filePath,F_OK)==0){
+                  exectPath = filePath;
+
+                  commandPtr->args=(char **)realloc(
+                          commandPtr->args, sizeof(char *)*(commandPtr->arg_count+=2));
+                  // shift everything forward by 1
+                  for (int j=commandPtr->arg_count-2;j>0;--j)
+                      commandPtr->args[j]=commandPtr->args[j-1];
+
+                  // set args[0] as a copy of name
+                  commandPtr->args[0]=strdup(commandPtr->name);
+                  // set args[arg_count-1] (last) to NULL
+                  commandPtr->args[commandPtr->arg_count-1]=NULL;
+
+                  execv(exectPath,commandPtr->args);
+                  break;
+              }
+
+              token = strtok(NULL,delim);
+          }
+          // find path of the last command and execute
+
+      }
+      else {
           execv(execPath, command->args);
       }
 
