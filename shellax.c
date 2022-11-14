@@ -1,11 +1,12 @@
-#include <errno.h>
-#include <stdbool.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
 #include <termios.h> // termios, TCSANOW, ECHO, ICANON
-#include <unistd.h>
+#include <string.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <fcntl.h>
 const char *sysname = "shellax";
 
 enum return_codes {
@@ -379,7 +380,35 @@ int process_command(struct command_t *command) {
 
           token = strtok(NULL,delim);
       }
-      execv(execPath, command->args);
+
+      // commands with redirection, >, >> and <
+      if (command->redirects[1] != NULL){
+          fclose(fopen(command->redirects[1],"w"));
+          int fd = open(command->redirects[1], O_WRONLY | O_APPEND);
+          dup2(fd, 1);
+          execv(execPath, command->args);
+      } else if (command->redirects[2] != NULL){
+          FILE *file;
+          if ((file = fopen(command->redirects[2],"r"))){
+              fclose(file);
+          } else {
+              fclose(fopen(command->redirects[2],"a"));
+          }
+          int fd = open(command->redirects[2], O_WRONLY | O_APPEND);
+          dup2(fd, 1);
+          execv(execPath, command->args);
+      } else if (command->redirects[0] != NULL){
+
+          char *newArgs[command->arg_count+1];
+          for (int i = 0; i < command->arg_count; i++){
+              newArgs[i] = command->args[i];
+          }
+          newArgs[command->arg_count-1] = command->redirects[0];
+          newArgs[command->arg_count] = NULL;
+          execv(execPath,newArgs);
+      } else {
+          execv(execPath, command->args);
+      }
 
     //execvp(command->name, command->args); // exec+args+path
     exit(0);
