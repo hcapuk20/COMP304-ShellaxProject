@@ -84,125 +84,110 @@ int show_prompt() {
  * @param  command [description]
  * @return         0
  */
-int parse_command(char *buf, struct command_t *command) {
-  const char *splitters = " \t"; // split at whitespace
-  int index, len;
-  len = strlen(buf);
-  while (len > 0 && strchr(splitters, buf[0]) != NULL) // trim left whitespace
-  {
-    buf++;
-    len--;
-  }
-  while (len > 0 && strchr(splitters, buf[len - 1]) != NULL)
-    buf[--len] = 0; // trim right whitespace
-
-  if (len > 0 && buf[len - 1] == '?') // auto-complete
-    command->auto_complete = true;
-  if (len > 0 && buf[len - 1] == '&') // background
-    command->background = true;
-
-  char *pch = strtok(buf, splitters);
-  if (pch == NULL) {
-    command->name = (char *)malloc(1);
-    command->name[0] = 0;
-  } else {
-    command->name = (char *)malloc(strlen(pch) + 1);
-    strcpy(command->name, pch);
-  }
-
-  command->args = (char **)malloc(sizeof(char *));
-
-  int redirect_index;
-  int arg_index = 0;
-  char temp_buf[1024], *arg;
-  while (1) {
-    // tokenize input on splitters
-    pch = strtok(NULL, splitters);
-    if (!pch)
-      break;
-    arg = temp_buf;
-    strcpy(arg, pch);
-    len = strlen(arg);
-
-    if (len == 0)
-      continue; // empty arg, go for next
-    while (len > 0 && strchr(splitters, arg[0]) != NULL) // trim left whitespace
+int parse_command(char *buf, struct command_t *command)
+{
+    const char *splitters=" \t"; // split at whitespace
+    int index, len;
+    len=strlen(buf);
+    while (len>0 && strchr(splitters, buf[0])!=NULL) // trim left whitespace
     {
-      arg++;
-      len--;
-    }
-    while (len > 0 && strchr(splitters, arg[len - 1]) != NULL)
-      arg[--len] = 0; // trim right whitespace
-    if (len == 0)
-      continue; // empty arg, go for next
-
-    // piping to another command
-    if (strcmp(arg, "|") == 0) {
-      struct command_t *c = malloc(sizeof(struct command_t));
-      int l = strlen(pch);
-      pch[l] = splitters[0]; // restore strtok termination
-      index = 1;
-      while (pch[index] == ' ' || pch[index] == '\t')
-        index++; // skip whitespaces
-
-      parse_command(pch + index, c);
-      pch[l] = 0; // put back strtok termination
-      command->next = c;
-      continue;
-    }
-
-    // background process
-    if (strcmp(arg, "&") == 0)
-      continue; // handled before
-
-    // handle input redirection
-    redirect_index = -1;
-    if (arg[0] == '<')
-      redirect_index = 0;
-    if (arg[0] == '>') {
-      if (len > 1 && arg[1] == '>') {
-        redirect_index = 2;
-        arg++;
+        buf++;
         len--;
-      } else
-        redirect_index = 1;
     }
-    if (redirect_index != -1) {
-      command->redirects[redirect_index] = malloc(len);
-      strcpy(command->redirects[redirect_index], arg + 1);
-      continue;
-    }
+    while (len>0 && strchr(splitters, buf[len-1])!=NULL)
+        buf[--len]=0; // trim right whitespace
 
-    // normal arguments
-    if (len > 2 &&
-        ((arg[0] == '"' && arg[len - 1] == '"') ||
-         (arg[0] == '\'' && arg[len - 1] == '\''))) // quote wrapped arg
+    if (len>0 && buf[len-1]=='?') // auto-complete
+        command->auto_complete=true;
+    if (len>0 && buf[len-1]=='&') // background
+        command->background=true;
+
+    char *pch = strtok(buf, splitters);
+    command->name=(char *)malloc(strlen(pch)+1);
+    if (pch==NULL)
+        command->name[0]=0;
+    else
+        strcpy(command->name, pch);
+
+    command->args=(char **)malloc(sizeof(char *));
+
+    int redirect_index;
+    int arg_index=0;
+    char temp_buf[1024], *arg;
+    while (1)
     {
-      arg[--len] = 0;
-      arg++;
+        // tokenize input on splitters
+        pch = strtok(NULL, splitters);
+        if (!pch) break;
+        arg=temp_buf;
+        strcpy(arg, pch);
+        len=strlen(arg);
+
+        if (len==0) continue; // empty arg, go for next
+        while (len>0 && strchr(splitters, arg[0])!=NULL) // trim left whitespace
+        {
+            arg++;
+            len--;
+        }
+        while (len>0 && strchr(splitters, arg[len-1])!=NULL) arg[--len]=0; // trim right whitespace
+        if (len==0) continue; // empty arg, go for next
+
+        // piping to another command
+        if (strcmp(arg, "|")==0)
+        {
+            struct command_t *c=malloc(sizeof(struct command_t));
+            int l=strlen(pch);
+            pch[l]=splitters[0]; // restore strtok termination
+            index=1;
+            while (pch[index]==' ' || pch[index]=='\t') index++; // skip whitespaces
+
+            parse_command(pch+index, c);
+            pch[l]=0; // put back strtok termination
+            command->next=c;
+            continue;
+        }
+
+        // background process
+        if (strcmp(arg, "&")==0)
+            continue; // handled before
+
+        // handle input redirection
+
+        redirect_index=-1;
+        if (arg[0]=='<')
+            redirect_index=0;
+        if (arg[0]=='>')
+        {
+            if (len>1 && arg[1]=='>')
+            {
+                redirect_index=2;
+                arg++;
+                len--;
+            }
+            else redirect_index=1;
+        }
+        if (redirect_index != -1)
+        {
+            command->redirects[redirect_index]=malloc(len);
+            strcpy(command->redirects[redirect_index], arg+1);
+            continue;
+        }
+
+        // normal arguments
+        if (len>2 && ((arg[0]=='"' && arg[len-1]=='"')
+                      || (arg[0]=='\'' && arg[len-1]=='\''))) // quote wrapped arg
+        {
+            arg[--len]=0;
+            arg++;
+        }
+        command->args=(char **)realloc(command->args, sizeof(char *)*(arg_index+1));
+        command->args[arg_index]=(char *)malloc(len+1);
+        strcpy(command->args[arg_index++], arg);
     }
-    command->args =
-        (char **)realloc(command->args, sizeof(char *) * (arg_index + 1));
-    command->args[arg_index] = (char *)malloc(len + 1);
-    strcpy(command->args[arg_index++], arg);
-  }
-  command->arg_count = arg_index;
-
-  // increase args size by 2
-  command->args = (char **)realloc(command->args,
-                                   sizeof(char *) * (command->arg_count += 2));
-
-  // shift everything forward by 1
-  for (int i = command->arg_count - 2; i > 0; --i)
-    command->args[i] = command->args[i - 1];
-
-  // set args[0] as a copy of name
-  command->args[0] = strdup(command->name);
-  // set args[arg_count-1] (last) to NULL
-  command->args[command->arg_count - 1] = NULL;
-
-  return 0;
+    command->arg_count=arg_index;
+    return 0;
 }
+
 
 void prompt_backspace() {
   putchar(8);   // go back 1
@@ -342,6 +327,13 @@ int process_command(struct command_t *command) {
   pid_t pid = fork();
   if (pid == 0) // child
   {
+      // background command
+      if (command->background){
+          pid_t pid2 = fork();
+          if (pid2){
+              exit(0);
+          }
+      }
     /// This shows how to do exec with environ (but is not available on MacOs)
     // extern char** environ; // environment variables
     // execvpe(command->name, command->args, environ); // exec+args+path+environ
@@ -352,7 +344,44 @@ int process_command(struct command_t *command) {
 
     // TODO: do your own exec with path resolving using execv()
     // do so by replacing the execvp call below
-    execvp(command->name, command->args); // exec+args+path
+
+      // increase args size by 2
+      command->args=(char **)realloc(
+              command->args, sizeof(char *)*(command->arg_count+=2));
+
+      // shift everything forward by 1
+      for (int i=command->arg_count-2;i>0;--i)
+          command->args[i]=command->args[i-1];
+
+      // set args[0] as a copy of name
+      command->args[0]=strdup(command->name);
+      // set args[arg_count-1] (last) to NULL
+      command->args[command->arg_count-1]=NULL;
+
+
+      char *path = getenv("PATH");
+      char *dupPath = strdup(path);
+
+
+      char *delim = ":";
+      char *fileName = command->name;
+      char *token = strtok(dupPath,delim);
+      char execPath[1000];
+      while (token != NULL){
+
+          char filePath[strlen(token)+strlen(fileName)+2];
+          sprintf(filePath,"%s/%s",token,fileName);
+
+          if (access(filePath,F_OK)==0){
+              strcpy(execPath,filePath);
+              break;
+          }
+
+          token = strtok(NULL,delim);
+      }
+      execv(execPath, command->args);
+
+    //execvp(command->name, command->args); // exec+args+path
     exit(0);
   } else {
     // TODO: implement background processes here
