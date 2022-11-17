@@ -495,7 +495,6 @@ int process_command(struct command_t *command) {
             char finalCurrentDirPath[strlen(fileName)+3];
             sprintf(finalCurrentDirPath,"./%s",fileName);
             if (access(finalCurrentDirPath,F_OK)==0){
-                printf("last access cwd\n");
                 // command file exists in the current directory.
                 //printf("command found in the current directory.\n");
                 char cwd[1000];

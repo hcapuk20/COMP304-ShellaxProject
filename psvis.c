@@ -6,16 +6,17 @@
 
 int main(int argc, char *argv[]) {
     int pid = atoi(argv[1]);
+    char *outputFile = argv[2];
     if (fork() == 0){
         char syscall[1000];
         // just to hold content in the dmesg before delete, so we do not get it as output on the terminal.
         system("sudo -S dmesg -c > prevlog.txt");
-        sprintf(syscall,"sudo insmod mymodule.ko given_pid=%d",pid);
+        sprintf(syscall,"sudo -S insmod mymodule.ko given_pid=%d",pid);
         system(syscall);
         system("dmesg | grep -e '->' > dm.txt");
-        system("sudo dmesg | grep color > dm2.txt");
+        system("dmesg | grep color > dm2.txt");
 
-        system("sudo rmmod mymodule");
+        system("sudo -S rmmod mymodule");
         FILE *readFile ,*readFile2, *writeFile;
 
         readFile = fopen("./dm.txt","r");
@@ -45,7 +46,9 @@ int main(int argc, char *argv[]) {
         fclose(readFile2);
         fclose(writeFile);
         // dot -Tpng graph.gv -o psvis.png
-        system("dot -Tpng graph.gv -o psvis.png");
+        char finalCall[1000];
+        sprintf(finalCall,"dot -Tpng graph.gv -o %s",outputFile);
+        system(finalCall);
     } else {
         wait(NULL);
         // delete temporary files
