@@ -13,8 +13,8 @@ int main(int argc, char *argv[]) {
         system("sudo -S dmesg -c > prevlog.txt");
         sprintf(syscall,"sudo -S insmod mymodule.ko given_pid=%d",pid);
         system(syscall);
-        system("dmesg | grep -e '->' > dm.txt");
-        system("dmesg | grep color > dm2.txt");
+        system("sudo -S dmesg | grep -e '->' > dm.txt");
+        system("sudo -S dmesg | grep color > dm2.txt");
 
         system("sudo -S rmmod mymodule");
         FILE *readFile ,*readFile2, *writeFile;
