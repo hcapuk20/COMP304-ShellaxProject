@@ -1,2 +1,0 @@
-Repository for Project 1 of COMP304 (Operating Systems) in Koç University.
-This project is done by the contributions of Eren Ceylan and Hakan Çapuk.
